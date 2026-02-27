@@ -1,0 +1,119 @@
+﻿/* ====== Base page layout ====== */
+.typing-page {
+    max-width: 900px;
+    margin: 40px auto;
+    padding: 0 16px;
+    font-family: monospace;
+}
+
+.setup-form,
+.test-form {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+/* ====== Setup form ====== */
+.form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+    .form-group label {
+        font-size: 14px;
+    }
+
+    .form-group select {
+        font-family: monospace;
+        font-size: 16px;
+        padding: 10px 12px;
+    }
+
+/* Start button: green with white text */
+.start-btn {
+    background: green;
+    color: white;
+    padding: 10px 16px;
+    border: none;
+    cursor: pointer;
+    width: fit-content;
+}
+
+/* ====== Top info bar ====== */
+.test-info {
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+}
+
+/* ====== Line pairs layout ====== */
+.lines-area {
+    display: flex;
+    flex-direction: column;
+    gap: 18px; /* space between each target+input pair */
+}
+
+.line-pair {
+    display: flex;
+    flex-direction: column;
+    gap: 8px; /* space between target line and input line */
+}
+
+/* Text to type */
+.target-line {
+    font-size: 22px;
+    line-height: 1.4;
+}
+
+/* Current input line (user types here) */
+.typing-line-input {
+    width: 100%;
+    font-family: monospace;
+    font-size: 22px;
+    line-height: 1.4;
+    padding: 6px 0;
+    border: none;
+    outline: none;
+    background: transparent;
+    /* underline */
+    border-bottom: 2px solid #bbb;
+}
+
+/* Completed typed line (locked) */
+.typed-line {
+    width: 100%;
+    font-family: monospace;
+    font-size: 22px;
+    line-height: 1.4;
+    padding: 6px 0;
+    /* underline similar to input */
+    border-bottom: 2px solid #ddd;
+    color: #444;
+    white-space: pre-wrap;
+}
+
+/* Placeholder for future inputs (shows an empty underline) */
+.input-placeholder-line {
+    height: 34px; /* close to input height */
+    border-bottom: 2px solid #eee;
+}
+
+/* ====== Buttons ====== */
+.test-buttons {
+    display: flex;
+    gap: 10px;
+}
+
+    .test-buttons button {
+        padding: 8px 12px;
+        cursor: pointer;
+    }
+
+/* ====== Results ====== */
+.results {
+    margin-top: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
