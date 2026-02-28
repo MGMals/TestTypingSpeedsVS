@@ -1,6 +1,5 @@
 ﻿@page "/typing"
-@using System.Timers
-@implements IDisposable
+
 
 <PageTitle>Typing</PageTitle>
 
@@ -30,7 +29,7 @@
                 </select>
             </div>
 
-            <button class="start-btn" @onclick="StartTest">Start Test</button>
+            <button class="start-btn" @onclick="async () => await StartTest()">Start Test</button>
         </div>
     }
     else
@@ -42,25 +41,25 @@
             </div>
 
             <div class="lines-area">
-                @for (int i = 0; i < _lines.Count; i++)
+                @for (int i = 0; i < Lines.Count; i++)
                 {
                     <div class="line-pair">
 
-                        <div class="target-line">@_lines[i]</div>
+                        <div class="target-line">@Lines[i]</div>
 
                         @if (IsFinished)
                         {
                             <div class="typed-line">@GetTypedForLine(i)</div>
                         }
-                        else if (i < _currentLineIndex)
+                        else if (i < CurrentLineIndex)
                         {
                             <div class="typed-line">@GetTypedForLine(i)</div>
                         }
-                        else if (i == _currentLineIndex)
+                        else if (i == CurrentLineIndex)
                         {
                             <input class="typing-line-input"
                                    @ref="CurrentInputRef"
-                                   value="@_currentTyped"
+                                   value="@CurrentTyped"
                                    @oninput="OnCurrentInput"
                                    @onkeydown="OnKeyDown"
                                    disabled="@IsFinished"
@@ -94,265 +93,3 @@
     }
 
 </div>
-
-@code {
-    // Setup
-    private bool IsTestActive { get; set; }
-    private bool IsFinished { get; set; }
-    private int SelectedTimeOption { get; set; } = 30;
-    private string SelectedDifficulty { get; set; } = "Easy";
-
-    // Timer
-    private int DurationSeconds { get; set; }
-    private int _elapsedSeconds;
-    private DateTime? _startUtc;
-    private CancellationTokenSource? _cts;
-    private int SecondsLeft => Math.Max(0, DurationSeconds - _elapsedSeconds);
-
-    // Lines
-    private readonly List<string> _lines = new();
-    private readonly Dictionary<int, string> _typedByLine = new();
-    private int _currentLineIndex;
-    private string _currentTyped = "";
-    private ElementReference CurrentInputRef;
-
-    // Focus control
-    private bool _focusNextRender;
-
-    // Results
-    private int CorrectChars { get; set; }
-    private int TotalTypedChars { get; set; }
-    private int Wpm { get; set; }
-    private int Accuracy { get; set; }
-
-    private Task StartTest()
-    {
-        IsTestActive = true;
-        DurationSeconds = SelectedTimeOption;
-
-        ResetState();
-
-        var fullText = GetPhrase(SelectedDifficulty);
-        _lines.Clear();
-        _lines.AddRange(WrapIntoLines(fullText, maxLineChars: 45));
-
-        _focusNextRender = true;
-        return Task.CompletedTask;
-    }
-
-    protected override async Task OnAfterRenderAsync(bool firstRender)
-    {
-        if (_focusNextRender && !IsFinished && IsTestActive)
-        {
-            _focusNextRender = false;
-            await CurrentInputRef.FocusAsync();
-        }
-    }
-
-    private void OnCurrentInput(ChangeEventArgs e)
-    {
-        _currentTyped = e.Value?.ToString() ?? "";
-
-        // Start timer on first keystroke
-        if (_startUtc is null && !IsFinished && _currentTyped.Length > 0)
-        {
-            _ = StartCountdownAsync();
-        }
-    }
-
-    private void OnKeyDown(KeyboardEventArgs e)
-    {
-        if (IsFinished) return;
-        if (_currentLineIndex >= _lines.Count) return;
-
-        // Submit line on Enter
-        if (e.Key == "Enter")
-        {
-            CommitLine();
-            return;
-        }
-
-        // Optional: commit automatically when they match target length exactly
-        var target = _lines[_currentLineIndex];
-        if (_currentTyped.Length == target.Length)
-        {
-            CommitLine();
-        }
-    }
-
-    private void CommitLine()
-    {
-        if (_currentLineIndex >= _lines.Count) return;
-
-        _typedByLine[_currentLineIndex] = _currentTyped;
-
-        _currentLineIndex++;
-        _currentTyped = "";
-
-        if (_currentLineIndex >= _lines.Count)
-        {
-            FinishTest();
-            return;
-        }
-
-        _focusNextRender = true;
-        StateHasChanged();
-    }
-
-    private string GetTypedForLine(int index)
-        => _typedByLine.TryGetValue(index, out var t) ? t : "";
-
-    private async Task StartCountdownAsync()
-    {
-        if (_startUtc is not null || IsFinished) return;
-
-        _startUtc = DateTime.UtcNow;
-        _elapsedSeconds = 0;
-
-        _cts?.Cancel();
-        _cts?.Dispose();
-        _cts = new CancellationTokenSource();
-        var token = _cts.Token;
-
-        try
-        {
-            using var timer = new PeriodicTimer(TimeSpan.FromSeconds(1));
-            while (await timer.WaitForNextTickAsync(token))
-            {
-                _elapsedSeconds = (int)Math.Floor((DateTime.UtcNow - _startUtc.Value).TotalSeconds);
-
-                if (_elapsedSeconds >= DurationSeconds)
-                {
-                    FinishTest();
-                    break;
-                }
-
-                await InvokeAsync(StateHasChanged);
-            }
-        }
-        catch (OperationCanceledException)
-        {
-            // expected on reset/back
-        }
-    }
-
-    private void FinishTest()
-    {
-        if (IsFinished) return;
-
-        IsFinished = true;
-        _cts?.Cancel();
-
-        ComputeResults();
-        _ = InvokeAsync(StateHasChanged);
-    }
-
-    private void ComputeResults()
-    {
-        // Combine typed lines including partial current line
-        var typedLines = _typedByLine.OrderBy(k => k.Key).Select(k => k.Value).ToList();
-        if (!string.IsNullOrEmpty(_currentTyped))
-            typedLines.Add(_currentTyped);
-
-        var typedAll = string.Join(" ", typedLines.Where(s => !string.IsNullOrEmpty(s)));
-        var targetAll = string.Join(" ", _lines);
-
-        TotalTypedChars = typedAll.Length;
-        CorrectChars = CountCorrectChars(typedAll, targetAll);
-
-        Accuracy = TotalTypedChars == 0 ? 0
-            : (int)Math.Round((double)CorrectChars / TotalTypedChars * 100);
-
-        double minutes = DurationSeconds / 60.0;
-        double grossWpm = (TotalTypedChars / 5.0) / minutes;
-
-        int errors = Math.Max(0, TotalTypedChars - CorrectChars);
-        double penalty = (errors / 5.0) / minutes;
-
-        Wpm = (int)Math.Round(Math.Max(0, grossWpm - penalty));
-    }
-
-    private void ResetState()
-    {
-        _cts?.Cancel();
-        _cts?.Dispose();
-        _cts = null;
-
-        _startUtc = null;
-        _elapsedSeconds = 0;
-        IsFinished = false;
-
-        _typedByLine.Clear();
-        _currentLineIndex = 0;
-        _currentTyped = "";
-
-        CorrectChars = 0;
-        TotalTypedChars = 0;
-        Wpm = 0;
-        Accuracy = 0;
-    }
-
-    private Task ResetTest()
-    {
-        ResetState();
-        _focusNextRender = true;
-        return Task.CompletedTask;
-    }
-
-    private Task BackToSetup()
-    {
-        ResetState();
-        IsTestActive = false;
-        return Task.CompletedTask;
-    }
-
-    private static int CountCorrectChars(string typed, string target)
-    {
-        int correct = 0;
-        int len = Math.Min(typed.Length, target.Length);
-        for (int i = 0; i < len; i++)
-            if (typed[i] == target[i]) correct++;
-        return correct;
-    }
-
-    private static IEnumerable<string> WrapIntoLines(string text, int maxLineChars)
-    {
-        var words = text.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-        var line = new List<string>();
-        int len = 0;
-
-        foreach (var w in words)
-        {
-            int add = (line.Count == 0 ? w.Length : w.Length + 1);
-            if (len + add > maxLineChars && line.Count > 0)
-            {
-                yield return string.Join(" ", line);
-                line.Clear();
-                len = 0;
-            }
-
-            line.Add(w);
-            len += add;
-        }
-
-        if (line.Count > 0)
-            yield return string.Join(" ", line);
-    }
-
-    private static string GetPhrase(string difficulty)
-    {
-        if (difficulty == "Easy")
-            return "The cat jumped over the mouse and fox which is easy.";
-
-        if (difficulty == "Medium")
-            return "Typing fast requires focus and consistent daily practice so your hands learn the rhythm of words.";
-
-        return "Pack my box with five dozen liquor jugs, then quickly judge my vow as the wizard of quizzical puzzles watches.";
-    }
-
-    public void Dispose()
-    {
-        _cts?.Cancel();
-        _cts?.Dispose();
-    }
-}

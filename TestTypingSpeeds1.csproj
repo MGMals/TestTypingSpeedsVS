@@ -9,6 +9,19 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly" Version="8.0.24" />
     <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.DevServer" Version="8.0.24" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.AspNetCore.Hosting" Version="2.3.9" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Update="wwwroot\phrases\Easy.txt">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Update="wwwroot\phrases\Hard.txt">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Update="wwwroot\phrases\Medium.txt">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
 
 </Project>
